@@ -1,0 +1,69 @@
+version: 2
+
+project_name: waitfor
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: waitfor
+    main: .
+    binary: waitfor
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/0xProgress/waitfor/internal/version.Version={{.Version}}
+      - -X github.com/0xProgress/waitfor/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/0xProgress/waitfor/internal/version.Date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/ci-cd.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))?\!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))?\!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: 0xProgress
+    name: waitfor
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"

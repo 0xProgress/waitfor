@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install waitfor (dogfood — use our own tool during release)
+        run: go build -o /usr/local/bin/waitfor .
+
+      # ── run CI checks before we let goreleaser anywhere near a release ────
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Format check
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "Unformatted files (fix with: gofmt -s -w .):"
+            echo "$out"
+            exit 1
+          fi
+
+      - name: Test
+        run: go test -race ./... -count=1
+
+      - name: Smoke test — waitfor works
+        run: |
+          touch /tmp/release-ready
+          waitfor file /tmp/release-ready --timeout 5s
+          waitfor command "echo release checks passed" --timeout 5s
+
+      # ── release ───────────────────────────────────────────────────────────
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

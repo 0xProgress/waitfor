@@ -1,0 +1,95 @@
+name: Bug report
+description: Something isn't working correctly
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a bug report, check [existing issues](https://github.com/0xProgress/waitfor/issues)
+        and [discussions](https://github.com/0xProgress/waitfor/discussions) first.
+
+        For failures that are **not** waitfor bugs — e.g. "waitfor correctly
+        timed out because Postgres wasn't running" — please don't open an
+        issue. Diagnostic failure output is the feature.
+
+  - type: input
+    id: version
+    attributes:
+      label: waitfor version
+      description: Output of `waitfor --version`
+      placeholder: "v0.1.0 (abc1234, 2026-09-18T18:17:40Z)"
+    validations:
+      required: true
+
+  - type: input
+    id: subcommand
+    attributes:
+      label: Subcommand
+      description: |
+        Which subcommand is affected? Use `all` if it's specific to
+        multi-condition mode, or `core` if it isn't subcommand-specific
+        (poller, output, exit codes).
+      placeholder: "port"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and architecture
+      placeholder: "linux/amd64, darwin/arm64, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: |
+        Paste the **full** failure block — `Condition:` / `Last state:` /
+        optional detail / `Tip:` — plus any stderr. That block is the
+        diagnostic; without it we can't tell whether the condition is
+        misreported, the tip is wrong, or the state string is unrecognized.
+
+        Redact private hostnames, container names, and file paths.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Minimal commands. A localhost-only shell snippet that reliably
+        triggers the bug is ideal.
+      placeholder: |
+        1. Start a listener:
+           python3 -m http.server 8090 --bind 127.0.0.1 &
+        2. Run:
+           waitfor --timeout 1s http localhost:8090/nope
+        3. Observed:
+           ✗ Timed out after 1s
+             Condition:  HTTP GET localhost:8090/nope
+             Last state: 404 File not found
+        4. Expected a Tip line matching the 404 case; got no Tip.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment notes
+      description: |
+        Global flags used (`--timeout`, `--interval`, `--json`, `--verbose`)
+        and any subcommand flags. Also: Docker, WSL, VPN, nftables/iptables —
+        these often change how `port` classifies dial errors, so a firewall
+        can turn a `connection refused` into a `connection timeout`.
+    validations:
+      required: false

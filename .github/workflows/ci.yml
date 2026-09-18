@@ -1,0 +1,120 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "Unformatted files:"
+            echo "$out"
+            exit 1
+          fi
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test ./... -count=1
+
+  race:
+    name: race
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -race ./... -count=1
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build
+        run: |
+          mkdir -p bin
+          go build -trimpath -o bin/waitfor .
+      - name: Add binary to PATH
+        run: echo "${{ github.workspace }}/bin" >> "$GITHUB_PATH"
+
+      # ── smoke tests ──────────────────────────────────────────────────────
+      # These exercise the built binary end-to-end. A real project would
+      # spin up Postgres/Redis and use `waitfor port <n>`; here we use
+      # conditions that don't require external services.
+
+      - name: Smoke — command success
+        run: waitfor command "echo ok" --timeout 5s
+
+      - name: Smoke — file
+        run: |
+          touch "$RUNNER_TEMP/ready"
+          waitfor file "$RUNNER_TEMP/ready" --timeout 5s
+
+      - name: Smoke — all with mixed kinds
+        run: |
+          touch "$RUNNER_TEMP/a" "$RUNNER_TEMP/b"
+          waitfor all file "$RUNNER_TEMP/a" file "$RUNNER_TEMP/b" --timeout 5s
+
+      - name: Smoke — timeout exit code is 1
+        run: |
+          set +e
+          waitfor port 1 --timeout 1s --quiet
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit 1 on timeout, got $code"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Smoke — invalid args exit code is 2
+        run: |
+          set +e
+          waitfor port 0 --quiet
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "expected exit 2 on bad args, got $code"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Smoke — json output is parseable
+        run: |
+          out=$(waitfor --json command "echo ok" --timeout 5s)
+          echo "$out" | grep -q '"success": true'
