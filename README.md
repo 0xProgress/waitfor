@@ -1,11 +1,8 @@
 # waitfor
 
-> _Block until a condition is true, or tell you exactly why it wasn't._
+Block until a condition is true, or find out exactly why it wasn't.
 
-`waitfor` polls a condition on a configurable interval until it becomes true
-or a timeout expires. The killer feature isn't the polling — it's the
-**failure output**. Every other tool says `timed out`. `waitfor` tells you
-_why_.
+`waitfor` polls a condition on a configurable interval until it becomes true or a timeout expires. The killer feature isn't the polling. It's the failure output. Every other tool says `timed out`. `waitfor` tells you why.
 
 ```
 $ waitfor port 5432 --timeout 5s
@@ -23,14 +20,15 @@ $ waitfor port 5432 --timeout 5s
 
 ### From source
 
+Requires Go 1.22 or newer.
+
 ```bash
 go install github.com/0xProgress/waitfor@latest
 ```
 
 ### Prebuilt binaries
 
-Download the latest release from the [Releases page](https://github.com/0xProgress/waitfor/releases).
-Checksums and cross-platform archives are published for every tag.
+Download the latest release from the [Releases page](https://github.com/0xProgress/waitfor/releases). Checksums and cross-platform archives are published for every tag.
 
 ### Build locally
 
@@ -42,6 +40,21 @@ make install        # installs to $GOBIN
 ```
 
 Requires Go 1.22 or newer.
+
+---
+
+## Platform support
+
+Tested on Linux and macOS. Windows is untested. Most subcommands will likely work, but `process` won't (it uses `/proc` on Linux and `ps` on macOS). PRs welcome.
+
+| Subcommand | Linux | macOS |
+| ---------- | ----- | ----- |
+| `port`     | ✅    | ✅    |
+| `http`     | ✅    | ✅    |
+| `file`     | ✅    | ✅    |
+| `process`  | ✅    | ✅    |
+| `command`  | ✅    | ✅    |
+| `all`      | ✅    | ✅    |
 
 ---
 
@@ -73,8 +86,7 @@ waitfor all port 5432 port 6379 http localhost:8080/health
 
 ### `waitfor port <number>`
 
-Waits for a TCP port on localhost to accept connections. Tries IPv4
-(`127.0.0.1`) first, then IPv6 (`[::1]`).
+Waits for a TCP port on localhost to accept connections. Tries IPv4 (`127.0.0.1`) first, then IPv6 (`[::1]`).
 
 | Failure state        | Meaning                                    |
 | -------------------- | ------------------------------------------ |
@@ -98,8 +110,7 @@ Waits for an HTTP endpoint to return the expected status (default: any 2xx).
 | `--insecure`      | `false` | Skip TLS verification             |
 | `--header "K: V"` | —       | Add a request header (repeatable) |
 
-URLs without a scheme are auto-prepended with `http://` and a warning is
-printed. On non-2xx responses, the last body is captured and shown.
+URLs without a scheme are auto-prepended with `http://` and a warning is printed. On non-2xx responses, the last body is captured and shown.
 
 ```bash
 waitfor http localhost:8080/health
@@ -127,8 +138,7 @@ Waits for a file or directory to exist.
 | `--min-size <bytes>` | `0`     | File must be at least N bytes |
 | `--nonempty`         | `false` | Shorthand for `--min-size 1`  |
 
-Distinguishes `not found`, `empty`, `size N < M`, `permission denied`, and
-`parent directory missing`.
+Distinguishes `not found`, `empty`, `size N < M`, `permission denied`, and `parent directory missing`.
 
 ```bash
 waitfor file ./tmp/ready
@@ -138,16 +148,14 @@ waitfor file ./tmp/ready --nonempty
 
 ### `waitfor process <name>`
 
-Waits for a process matching a name to be running (substring match by default).
+Waits for a process matching a name to be running (substring match by default). Linux and macOS only (see [Platform support](#platform-support)).
 
 | Flag                | Default | Description                             |
 | ------------------- | ------- | --------------------------------------- |
 | `--exact`           | `false` | Exact name match instead of substring   |
 | `--user <username>` | —       | Only match processes owned by this user |
 
-Runs on Linux (`/proc`) and macOS (`ps`). On other platforms, returns an
-error immediately. Numeric PIDs are rejected with a hint to use
-`waitfor command 'kill -0 <pid>'`.
+Numeric PIDs are rejected with a hint to use `waitfor command 'kill -0 <pid>'`.
 
 ```bash
 waitfor process postgres
@@ -155,9 +163,7 @@ waitfor process postgres --exact
 waitfor process postgres --user deploy
 ```
 
-**Limitation:** Linux `comm` is capped at 15 characters by the kernel. Names
-longer than 15 chars won't match on Linux. This is a kernel constraint, not
-a `waitfor` bug.
+**Heads up:** Linux `comm` is capped at 15 characters by the kernel. Names longer than 15 chars won't match on Linux. That's a kernel constraint, not a bug.
 
 ### `waitfor command "<shell command>"`
 
@@ -167,9 +173,7 @@ Waits for a shell command to exit with the expected code.
 | ----------------- | ------- | ------------------ |
 | `--exit-code <n>` | `0`     | Expected exit code |
 
-The command is passed to `sh -c` unmodified, so pipes, redirection, and
-command substitution all work. It runs as the current user; `waitfor` never
-elevates.
+The command is passed to `sh -c` unmodified, so pipes, redirection, and command substitution all work. Runs as the current user. `waitfor` never elevates.
 
 ```bash
 waitfor command "docker inspect mycontainer | jq -e '.State.Running'"
@@ -188,12 +192,9 @@ $ waitfor command 'docker inspect mycontainer | jq ".State.Running"' --timeout 3
 
 ### `waitfor all <condition> [condition...]`
 
-Waits for multiple conditions simultaneously. All must pass. Runs each
-condition in its own goroutine.
+Waits for multiple conditions simultaneously. All must pass. Each condition runs in its own goroutine.
 
-Global flags may appear **anywhere** in the argument list. Sub-condition
-flags (like `--status` or `--exit-code`) apply only to the condition they
-follow.
+Global flags may appear anywhere in the argument list. Sub-condition flags like `--status` or `--exit-code` apply only to the condition they follow.
 
 ```bash
 waitfor all port 5432 port 6379
@@ -233,7 +234,7 @@ $ waitfor all port 5432 port 6379 http localhost:8080/health
 | Code | Meaning                                                          |
 | ---- | ---------------------------------------------------------------- |
 | `0`  | Condition met                                                    |
-| `1`  | Timeout — condition never met                                    |
+| `1`  | Timeout: condition never met                                     |
 | `2`  | Bad arguments / invalid input                                    |
 | `3`  | Permission error _(reserved; no condition currently emits this)_ |
 
@@ -255,15 +256,13 @@ Every subcommand supports `--json`:
 }
 ```
 
-Optional fields (`detail_label`, `detail_value`) are omitted when empty. For
-`all`, a `children` array carries one entry per sub-condition.
+`detail_label` and `detail_value` are omitted when empty. For `all`, a `children` array carries one entry per sub-condition.
 
 ---
 
 ## Use in CI/CD
 
-See **[docs/ci-cd.md](docs/ci-cd.md)** for copy-paste recipes covering GitHub
-Actions, GitLab CI, Docker Compose, and Kubernetes. The short version:
+See [docs/ci-cd.md](docs/ci-cd.md) for copy-paste recipes covering GitHub Actions, GitLab CI, Docker Compose, and Kubernetes. The short version:
 
 ```yaml
 # GitHub Actions
@@ -274,20 +273,18 @@ Actions, GitLab CI, Docker Compose, and Kubernetes. The short version:
 Why `waitfor` beats `sleep 10` in CI:
 
 - **Fast on success.** Returns the instant the condition is met, not after a fixed delay.
-- **Diagnostic on failure.** The timeout output tells you _which_ thing failed and _why_, so you don't have to re-run with more logging.
+- **Diagnostic on failure.** The timeout output tells you which thing failed and why, so you don't have to re-run with more logging.
 - **Deterministic in flaky environments.** Configurable timeout and interval let you tune per-job.
 
 ---
 
 ## Edge cases
 
-`waitfor` handles these per spec:
-
-- `--timeout 0s` performs a single check and reports `Condition not met (single check, no timeout set)`.
+- `--timeout 0s` does a single check and reports `Condition not met (single check, no timeout set)`.
 - `--interval` shorter than 100ms is clamped to 100ms.
-- `--interval` longer than `--timeout` warns and performs a single check.
-- `--timeout` or `--interval` < 0 is rejected with exit 2.
-- URLs without a scheme are auto-prepended with `http://` and a warning is printed _before_ polling begins.
+- `--interval` longer than `--timeout` warns and does a single check.
+- Negative `--timeout` or `--interval` is rejected with exit 2.
+- URLs without a scheme get `http://` prepended with a warning printed before polling starts.
 - SIGINT/SIGTERM cancel polling cleanly and exit 1 with the last observed state.
 - `waitfor all` with zero conditions is an error, not a silent success.
 
